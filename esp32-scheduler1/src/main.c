@@ -33,13 +33,14 @@ void app_main()
   
   vTaskPrioritySet(NULL, APP_MAIN_PRIORITY);  
   
-  xTaskCreate(vTask1, "Task1", TASK_STACK_SIZE, NULL, TASK1_PRIORITY, &xHandle1);
+  // Modificación: Usar xTaskCreatePinnedToCore para fijar al Core 0
+  xTaskCreatePinnedToCore(vTask1, "Task1", TASK_STACK_SIZE, NULL, TASK1_PRIORITY, &xHandle1, 0);
   configASSERT(xHandle1);
 
-  xTaskCreate(vTask2, "Task2", TASK_STACK_SIZE, NULL, TASK2_PRIORITY, &xHandle2); 
+  xTaskCreatePinnedToCore(vTask2, "Task2", TASK_STACK_SIZE, NULL, TASK2_PRIORITY, &xHandle2, 0); 
   configASSERT(xHandle2);
 
-  xTaskCreate(vTask3, "Task3", TASK_STACK_SIZE, NULL, TASK3_PRIORITY, &xHandle3);
+  xTaskCreatePinnedToCore(vTask3, "Task3", TASK_STACK_SIZE, NULL, TASK3_PRIORITY, &xHandle3, 0);
   configASSERT(xHandle3);  
 
   vTaskDelay(TASK_RUNNING_TIME_MS / portTICK_PERIOD_MS);
