@@ -14,7 +14,7 @@ void app_main()
   xTaskCreate(
       vTaskCode,                              /* Task function */
       "Task",                                 /* Name of task; for human use */
-      configMINIMAL_STACK_SIZE*5,             /* Stack size of task */
+      configMINIMAL_STACK_SIZE,               /* Stack size of task */
       NULL,                                   /* Parameter of the task */
       CONFIG_ESP32_PTHREAD_TASK_PRIO_DEFAULT, /* Priority of the task */
       &xHandle);                              /* Task handle to keep track of created task */
