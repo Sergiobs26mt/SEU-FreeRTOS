@@ -7,14 +7,19 @@
 #define TASK1_PRIORITY        4
 #define TASK2_PRIORITY        3
 #define TASK3_PRIORITY        3
-#define APP_MAIN_PRIORITY	    5
-#define TASK_STACK_SIZE       2048   /* Words task stack size */
+#define APP_MAIN_PRIORITY     5
+#define TASK_STACK_SIZE       2048
 
-#define TASK_RUNNING_TIME_MS  1000   /* Time for tasks to run */
+#define TASK_RUNNING_TIME_MS  1000
 
-#define LOOP_COUNT_TASK_1     1000   /* Loop iterations for Task1 */
-#define LOOP_COUNT_TASK_2     2000   /* Loop iterations for Task2 */
-#define LOOP_COUNT_TASK_3     2000   /* Loop iterations for Task3 */
+#define LOOP_COUNT_TASK_1     1000
+#define LOOP_COUNT_TASK_2     2000
+#define LOOP_COUNT_TASK_3     2000
+
+// Períodos de las tareas
+#define TASK1_PERIOD_MS       200
+#define TASK2_PERIOD_MS       100
+#define TASK3_PERIOD_MS       100
 
 void vTask1(void * parameter);
 void vTask2(void * parameter);
@@ -26,36 +31,23 @@ void app_main()
   TaskHandle_t xHandle2 = NULL;
   TaskHandle_t xHandle3 = NULL;
   
-  /* Set high priority for app_main */
   vTaskPrioritySet(NULL, APP_MAIN_PRIORITY);  
   
-  /* Create a new task and add it to the list of tasks that are ready to run */
-  xTaskCreate(
-      vTask1,           /* Task function */
-      "Task1",          /* Name of task; for human use */
-      TASK_STACK_SIZE,  /* Stack size of task */
-      NULL,             /* Parameter of the task */
-      TASK1_PRIORITY,   /* Priority of the task */
-      &xHandle1);       /* Task handle to keep track of created task */
+  xTaskCreate(vTask1, "Task1", TASK_STACK_SIZE, NULL, TASK1_PRIORITY, &xHandle1);
   configASSERT(xHandle1);
 
-  /* Create a new task and add it to the list of tasks that are ready to run */
   xTaskCreate(vTask2, "Task2", TASK_STACK_SIZE, NULL, TASK2_PRIORITY, &xHandle2); 
   configASSERT(xHandle2);
 
-    /* Create a new task and add it to the list of tasks that are ready to run */
   xTaskCreate(vTask3, "Task3", TASK_STACK_SIZE, NULL, TASK3_PRIORITY, &xHandle3);
   configASSERT(xHandle3);  
 
-  /* Wait TASK_RUNNING_TIME_MS ms */
   vTaskDelay(TASK_RUNNING_TIME_MS / portTICK_PERIOD_MS);
  
-  /* Display task statistics */
   char bufferStats[2048];
   vTaskGetRunTimeStats(bufferStats);
   printf("\n%s\n", bufferStats);  
   
-  /* Use the handles to delete the tasks. */
   if (xHandle1 != NULL)
   {
     vTaskDelete(xHandle1);
@@ -70,14 +62,12 @@ void app_main()
   }         
 }
 
-/* Task 1 function 
- *  Periodic task: t = 200 ms
- */
+/* Task 1 function - Periodic task: t = 200 ms */
 void vTask1(void * parameter)
 {
-  double aux = acos(-1.0);  /* aux = PI */
+  double aux = acos(-1.0);
+  TickType_t xLastWakeTime = xTaskGetTickCount();
  
-  /* loop forever */
   for(;;)
   {
     for (int i = 0; i < LOOP_COUNT_TASK_1; i++)
@@ -90,17 +80,18 @@ void vTask1(void * parameter)
         }
     }    
     aux = acos(-1.0);
+    
+    // Esperar hasta el siguiente período
+    vTaskDelayUntil(&xLastWakeTime, TASK1_PERIOD_MS / portTICK_PERIOD_MS);
   }
 }
 
-/* Task 2 function 
- * Periodic task: t = 100 ms
- */
+/* Task 2 function - Periodic task: t = 100 ms */
 void vTask2(void * parameter)
 {
-  double aux = acos(-1.0);  /* aux = PI */
+  double aux = acos(-1.0);
+  TickType_t xLastWakeTime = xTaskGetTickCount();
  
-  /* loop forever */
   for(;;)
   {
     for (int i = 0; i < LOOP_COUNT_TASK_2; i++)
@@ -113,17 +104,18 @@ void vTask2(void * parameter)
         }
     }
     aux = acos(-1.0);
+    
+    // Esperar hasta el siguiente período
+    vTaskDelayUntil(&xLastWakeTime, TASK2_PERIOD_MS / portTICK_PERIOD_MS);
   }
 }
 
-/* Task 3 function 
- * Periodic task: t = 100 ms
- */
+/* Task 3 function - Periodic task: t = 100 ms */
 void vTask3(void * parameter)
 {
-  double aux = acos(-1.0);  /* aux = PI */
+  double aux = acos(-1.0);
+  TickType_t xLastWakeTime = xTaskGetTickCount();
  
-  /* loop forever */
   for(;;)
   {
     for (int i = 0; i < LOOP_COUNT_TASK_3; i++)
@@ -136,5 +128,8 @@ void vTask3(void * parameter)
         }
     }
     aux = acos(-1.0);
+    
+    // Esperar hasta el siguiente período
+    vTaskDelayUntil(&xLastWakeTime, TASK3_PERIOD_MS / portTICK_PERIOD_MS);
   }
 }
