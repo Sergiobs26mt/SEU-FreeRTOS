@@ -2,6 +2,7 @@
 #include <freertos/task.h>
 #include <freertos/queue.h>
 #include "esp_log.h"
+#include "esp_random.h"
 
 #define TASK_STACK_SIZE                 2048
 #define TASK_ACQ_PRIORITY               5
@@ -13,8 +14,8 @@
 
 static const char* TAG = "HTQueueSet";
 
-void HTAcquisition(void * queue);
-void HTDisplay(void * queue);
+void HTAcquisition(void * param);
+void HTDisplay(void * queueSet);
 
 struct HTreading
 {
@@ -33,13 +34,20 @@ typedef struct SensorParam t_SensorParam;
 
 void app_main()
 {
-    QueueHandle_t xHTQueue[NUM_ACQ_SENSORS];    
-    TaskHandle_t xHandleAcq = NULL;
+    QueueHandle_t xHTQueue[NUM_ACQ_SENSORS];
+    TaskHandle_t xHandleAcq[NUM_ACQ_SENSORS];
     TaskHandle_t xHandleDisp = NULL;            
 
-	/* Create the queue set */
-    QueueSetHandle_t xQueueSet = ...;
+    /* Create the queue set */
+    QueueSetHandle_t xQueueSet = xQueueCreateSet(NUM_ACQ_SENSORS * 10);
+    if (xQueueSet == NULL)
+    {
+        ESP_LOGE(TAG, "Error creating queue set. Restarting...");
+        exit(EXIT_FAILURE);
+    }
+    ESP_LOGI(TAG, "[app_main] Queue set created.");
 
+    /* Create queues and tasks for each sensor */
     for (unsigned int i = 0; i < NUM_ACQ_SENSORS; i++)
     {
         xHTQueue[i] = xQueueCreate(HT_QUEUE_LENGTH, sizeof(t_HTreading));
@@ -49,20 +57,32 @@ void app_main()
             exit(EXIT_FAILURE);                
         }
 
-		/* Add the queue to the set */
-        ...;
+        /* Add the queue to the set */
+        if (xQueueAddToSet(xHTQueue[i], xQueueSet) != pdPASS)
+        {
+            ESP_LOGE(TAG, "Error adding queue %d to set. Restarting...", i);
+            exit(EXIT_FAILURE);
+        }
 
+        /* Create acquisition task for sensor i */
         t_SensorParam param;
         param.sensorID = i;
         param.queue = xHTQueue[i];
 
-        xTaskCreate(HTAcquisition, "Task_Acq", TASK_STACK_SIZE, (void *)&param, TASK_ACQ_PRIORITY, &xHandleAcq);
-        configASSERT( xHandleAcq );
-        ESP_LOGI(TAG, "[app_main] Task_Acq %d created.", i);
-    }    
+        char taskName[16];
+        snprintf(taskName, sizeof(taskName), "Task_Acq_%d", i);
+        xTaskCreate(HTAcquisition, taskName, TASK_STACK_SIZE, 
+                   (void *)&param, TASK_ACQ_PRIORITY, &xHandleAcq[i]);
+        
+        /* Small delay to ensure task parameter is copied */
+        vTaskDelay(10 / portTICK_PERIOD_MS);
+        
+        ESP_LOGI(TAG, "[app_main] Task_Acq_%d created.", i);
+    }
 
-    xTaskCreate(HTDisplay, "Task_Disp", TASK_STACK_SIZE, (void *)xQueueSet, TASK_DISP_PRIORITY, &xHandleDisp);
-    configASSERT( xHandleDisp );
+    /* Create display task */
+    xTaskCreate(HTDisplay, "Task_Disp", TASK_STACK_SIZE, 
+               (void *)xQueueSet, TASK_DISP_PRIORITY, &xHandleDisp);
     ESP_LOGI(TAG, "[app_main] Task_Disp created.");
 
     /* Enter suspend state forever */
@@ -112,18 +132,20 @@ void HTDisplay(void * queueSet)
     {
         t_HTreading HTreceived;
 
-		/* Select the queue */
-        QueueHandle_t queue = ...;
-		/* Receive from the queue */
-        BaseType_t xStatus = ...;
+        /* Select the queue */
+        QueueHandle_t queue = (QueueHandle_t)xQueueSelectFromSet(xQueueSet, portMAX_DELAY);
+        
+        /* Receive from the queue */
+        BaseType_t xStatus = xQueueReceive(queue, &HTreceived, 0);
+        
         if (xStatus == pdPASS)
         {
-            printf("Sensor ID %d: Temperature %d°C, humidity %d%%\n", 
-                HTreceived.sensorID, HTreceived.temperature, HTreceived.humidity);
+            ESP_LOGI(TAG, "[HTDisplay] Sensor %d: Temp = %d°C, Humidity = %d%%", 
+                    HTreceived.sensorID, HTreceived.temperature, HTreceived.humidity);
         }
         else
         {
-            ESP_LOGW(TAG, "Could not receive from the queue.");
+            ESP_LOGW(TAG, "[HTDisplay] Failed to receive data from queue");
         }
     }
 }
